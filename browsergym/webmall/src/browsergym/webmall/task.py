@@ -7,7 +7,7 @@ from dataclasses import asdict
 from typing import Tuple
 from playwright.sync_api import Page
 from pathlib import Path
-from .evaluator import Evaluator, StringEvaluator, URLEvaluator, CartEvaluator, CheckoutEvaluator, EvaluatorComb
+from .evaluator import RequestTracker, Evaluator, StringEvaluator, URLEvaluator, CartEvaluator, CheckoutEvaluator, EvaluatorComb
 from .checkpoints import Checklist, Checkpoint
 
 logger = logging.getLogger(__name__)
@@ -89,6 +89,7 @@ class WebMallTask(AbstractBrowserTask):
         start_url = self.urls['FRONTEND_URL']
         logger.info(f"Navigating to start url: {start_url}")
         page.goto(start_url, timeout=50000)
+        self.request_tracker = RequestTracker(page.context)
 
         general_instruction = self.task_config.get("instruction", "")
         specific_instruction = self.task_config.get("task", "")
@@ -108,6 +109,7 @@ class WebMallTask(AbstractBrowserTask):
         else:
             last_message = {"answer": ""}
 
+        self.request_tracker.wait_until_settled(page)
         evaluator = _evaluator_router(self.checklist)
         checkpoints_old = self.checklist.checkpoints.copy()
         score, self.checklist, wrong_solutions = evaluator.score(last_message, page, self.checklist)
